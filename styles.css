@@ -1,0 +1,267 @@
+/* BTC/USD Signal Terminal -- dunkles Trading-UI, Gruen = BUY, Rot = SELL.
+   Farben hier und in js/app.js (CONFIG) muessen zusammenpassen. */
+
+:root {
+  --bg:        #0a0e12;
+  --panel:     #0f151b;
+  --panel-2:   #121a22;
+  --line:      #1e2a35;
+  --text:      #d6e2ee;
+  --text-dim:  #5d6b7a;
+  --buy:       #22d67b;
+  --sell:      #ff4d5e;
+  --accent:    #4da3ff;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Feines Raster im Hintergrund -- gibt der Flaeche Tiefe, ohne abzulenken. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(120, 150, 180, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 150, 180, 0.045) 1px, transparent 1px);
+  background-size: 34px 34px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#stage {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Kopfzeile ------------------------------------------------------- */
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 0 16px;
+  height: 52px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #101820, #0b1116);
+  flex: 0 0 auto;
+}
+
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--buy);
+  box-shadow: 0 0 10px var(--buy);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.brand-name { letter-spacing: 2px; font-weight: 700; font-size: 12px; }
+.brand-ver { color: var(--text-dim); font-size: 11px; }
+
+.quote { display: flex; align-items: baseline; gap: 12px; }
+.symbol { font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+.tf {
+  font-size: 10px; color: var(--text-dim);
+  border: 1px solid var(--line); border-radius: 3px;
+  padding: 2px 6px;
+}
+.price { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.change { font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.up   { color: var(--buy); }
+.down { color: var(--sell); }
+.dim  { color: var(--text-dim); }
+
+.topstats { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+.kv { display: flex; align-items: baseline; gap: 6px; }
+.kv .k { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; }
+.kv .v { font-variant-numeric: tabular-nums; }
+.kv.col { flex-direction: column; align-items: flex-start; gap: 2px; }
+
+.badge {
+  font-size: 10px; letter-spacing: 1.5px; padding: 4px 9px;
+  border: 1px solid var(--line); border-radius: 3px; color: var(--text-dim);
+}
+.badge.live { color: var(--buy); border-color: rgba(34, 214, 123, .45); box-shadow: 0 0 12px rgba(34, 214, 123, .18); }
+.badge.sim  { color: #f0a020; border-color: rgba(240, 160, 32, .45); }
+.badge.mode { color: var(--accent); border-color: rgba(77, 163, 255, .4); }
+
+/* --- Hauptbereich ---------------------------------------------------- */
+#body { flex: 1 1 auto; display: flex; min-height: 0; }
+
+#chart-wrap { position: relative; flex: 1 1 auto; min-width: 0; }
+#chart { display: block; width: 100%; height: 100%; }
+
+/* Eckwinkel -- reine Deko, macht den Chart zum "Zielfenster". */
+.corner { position: absolute; width: 16px; height: 16px; pointer-events: none; opacity: .5; }
+.corner.tl { top: 8px;    left: 8px;   border-top: 1px solid var(--accent); border-left: 1px solid var(--accent); }
+.corner.tr { top: 8px;    right: 8px;  border-top: 1px solid var(--accent); border-right: 1px solid var(--accent); }
+.corner.bl { bottom: 8px; left: 8px;   border-bottom: 1px solid var(--accent); border-left: 1px solid var(--accent); }
+.corner.br { bottom: 8px; right: 8px;  border-bottom: 1px solid var(--accent); border-right: 1px solid var(--accent); }
+
+.legend {
+  position: absolute; top: 10px; left: 14px;
+  display: flex; gap: 14px; font-size: 10px; color: var(--text-dim);
+  letter-spacing: 1px; pointer-events: none;
+}
+.lg { display: flex; align-items: center; gap: 5px; }
+.sw { width: 12px; height: 2px; display: inline-block; }
+.sw.fast  { background: #4da3ff; }
+.sw.slow  { background: #f0a020; }
+.sw.trend { background: rgba(150, 170, 190, .55); }
+
+/* --- Seitenleiste ---------------------------------------------------- */
+#side {
+  flex: 0 0 316px;
+  border-left: 1px solid var(--line);
+  background: #0b1015;
+  display: flex; flex-direction: column;
+  padding: 10px; gap: 10px;
+  min-height: 0;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 10px 12px;
+}
+.panel.grow { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+
+.panel-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px; letter-spacing: 2px; color: var(--text-dim);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 7px; margin-bottom: 9px;
+}
+
+.row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; font-size: 12px;
+}
+.row .k { color: var(--text-dim); letter-spacing: 1px; font-size: 11px; }
+.val { font-variant-numeric: tabular-nums; }
+
+/* --- Signal-Karte ---------------------------------------------------- */
+.signal-card { transition: border-color .2s, box-shadow .2s; }
+.signal-card.idle { border-color: var(--line); }
+.signal-card.buy  { border-color: rgba(34, 214, 123, .55); box-shadow: inset 0 0 30px rgba(34, 214, 123, .07), 0 0 18px rgba(34, 214, 123, .1); }
+.signal-card.sell { border-color: rgba(255, 77, 94, .55);  box-shadow: inset 0 0 30px rgba(255, 77, 94, .07), 0 0 18px rgba(255, 77, 94, .1); }
+
+.sig-side {
+  font-size: 30px; font-weight: 700; letter-spacing: 4px;
+  line-height: 1.15; margin: 2px 0 10px;
+  color: var(--text-dim);
+}
+.signal-card.buy  .sig-side { color: var(--buy);  text-shadow: 0 0 18px rgba(34, 214, 123, .5); }
+.signal-card.sell .sig-side { color: var(--sell); text-shadow: 0 0 18px rgba(255, 77, 94, .5); }
+.signal-card.idle .sig-side { font-size: 18px; letter-spacing: 2px; }
+
+.sig-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 9px 12px; margin-bottom: 10px;
+}
+.sig-grid .v { font-size: 14px; }
+
+.bar { height: 4px; background: var(--panel-2); overflow: hidden; }
+.bar.thin { height: 3px; margin: 4px 0 2px; }
+.bar-fill { height: 100%; width: 0; background: var(--text-dim); transition: width .25s ease; }
+.signal-card.buy  .bar-fill { background: var(--buy);  box-shadow: 0 0 10px var(--buy); }
+.signal-card.sell .bar-fill { background: var(--sell); box-shadow: 0 0 10px var(--sell); }
+.bar-fill.neutral { background: #9d7bff; }
+.bar-fill.win { background: var(--buy); }
+
+.sig-status {
+  margin-top: 9px; padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 11px; letter-spacing: 1.5px;
+}
+
+/* --- Log ------------------------------------------------------------- */
+.log {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  font-size: 11px; line-height: 1.65;
+  scrollbar-width: thin;
+}
+.log::-webkit-scrollbar { width: 6px; }
+.log::-webkit-scrollbar-thumb { background: var(--line); }
+
+.log-line {
+  display: flex; gap: 7px;
+  animation: slidein .22s ease-out;
+  white-space: nowrap;
+}
+@keyframes slidein { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+.log-ts  { color: #3f4c58; flex: 0 0 auto; }
+.log-tag { flex: 0 0 auto; }
+.log-msg { color: #8fa2b4; white-space: normal; }
+
+.log-sys  .log-tag { color: var(--accent); }
+.log-scan .log-tag { color: #9d7bff; }
+.log-warn .log-tag { color: #f0a020; }
+.log-warn .log-msg { color: #f0a020; }
+.log-buy  .log-tag, .log-buy  .log-msg { color: var(--buy); }
+.log-sell .log-tag, .log-sell .log-msg { color: var(--sell); }
+
+.blink { animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* --- Statuszeile ----------------------------------------------------- */
+#statusbar {
+  flex: 0 0 auto;
+  height: 30px; display: flex; align-items: center; gap: 18px;
+  padding: 0 16px;
+  border-top: 1px solid var(--line);
+  background: #0b1116;
+  font-size: 10px; letter-spacing: 1px; color: var(--text-dim);
+}
+#statusbar b { color: var(--accent); font-weight: 700; }
+#statusbar .spacer { flex: 1 1 auto; }
+
+/* --- Effektebene ----------------------------------------------------- */
+#fx-scan, #fx-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+#fx-scan {
+  background: repeating-linear-gradient(
+    180deg, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, .16) 3px, rgba(0, 0, 0, .16) 3px);
+  opacity: .5;
+}
+#fx-vignette { box-shadow: inset 0 0 220px rgba(0, 0, 0, .75); }
+
+/* --- Modi ------------------------------------------------------------ */
+/* H: nur der Chart, alles andere aus. */
+body.bare #topbar,
+body.bare #side,
+body.bare #statusbar { display: none; }
+
+/* G: Scanlines und Vignette aus -- bei starker Videokompression manchmal besser. */
+body.no-fx #fx-scan,
+body.no-fx #fx-vignette,
+body.no-fx::before { display: none; }
+
+/* F: fester 1920x1080-Rahmen, damit die Aufnahme pixelgenau passt.
+   Wird herunterskaliert, wenn das Fenster kleiner ist. */
+body.fixed-frame {
+  display: flex; align-items: center; justify-content: center;
+  background: #000;
+}
+body.fixed-frame #stage {
+  width: 1920px; height: 1080px;
+  flex: 0 0 auto;
+  transform: scale(var(--frame-scale, 1));
+  transform-origin: center center;
+  outline: 1px solid var(--line);
+}
